@@ -20,11 +20,10 @@ npm install @snap/camera-kit-react-native
 Start with importing the following modules:
 
 ```js
-import { CameraKitContext } from '@snap/camera-kit-react-native';
-import { useCameraKit } from '@snap/camera-kit-react-native';
+import { CameraKitContext, CameraPreviewView, useCameraKit } from '@snap/camera-kit-react-native';
 ```
 
-`CameraKitContext` component will contain global configuration for CameraKit session whereas `useCameraKit` hook will provide API for managing native CameraKit session, load lenses, apply lens, etc.
+`CameraKitContext` component will contain global configuration for CameraKit session, `CameraPreviewView` renders the camera preview, and the `useCameraKit` hook provides the API for managing the native CameraKit session: load lenses, apply a lens, take snapshots and videos, etc.
 
 For Android, make sure you have following permissions defined in `AndroidManifest.xml` file:
 
@@ -38,69 +37,58 @@ For Android, make sure you have following permissions defined in `AndroidManifes
 ### Please refer to the [example](./example) directory for detailed usage examples on how to integrate and use this wrapper in your React Native project.
 
 ***Usage example:***
-```js
-import { PreviewView, useCamera } from "@snap/camera-kit-react-native"
-import { useEffect } from "react"
-import { View, FlatList, Pressable, Image } from "react-native"
-import { Lenses } from "./lenses"
+```tsx
+import { CameraKitContext, CameraPreviewView } from '@snap/camera-kit-react-native';
+import { Lenses } from './Lenses';
 
 export function App() {
-    const { setPosition } = useCamera();
-
-    useEffect(async () => {
-        setPosition("front");
-    })
-
     return (
-        <CameraKitContext apiToken="<API Token from Camera Kit Portal>" safeArea={{top: 100, bottom: 200}}>
-            <PreviewView />
-            <Lenses />
+        <CameraKitContext apiToken="<API Token from Camera Kit Portal>">
+            <CameraPreviewView
+                style={{ flex: 1 }}
+                cameraPosition="front"
+                mirrorFramesHorizontally={false}
+                safeRenderArea={{ top: 100, left: 0, bottom: 200, right: 0 }}
+            />
+            <Lenses groupId="<Lens Group ID from Camera Kit Portal>" />
         </CameraKitContext>
-    )
+    );
 }
 ```
 
 ***Lens carousel example:***
-```js
-import { PreviewView, useCameraKitManager } from "@snap/camera-kit-react-native"
-import { useEffect } from "react"
-import { View, FlatList, Pressable, Image } from "react-native"
-import { useCameraManager } from "./partner-camera"
+```tsx
+import { useCameraKit, type Lens } from '@snap/camera-kit-react-native';
+import { useEffect, useState } from 'react';
+import { View, FlatList, Pressable, Image } from 'react-native';
 
-function Lenses({ groupId }: { groupId: string }) {
-    const { loadLenses, applyLens } = useCameraKitManager();
-    const [lenses, setLenses] = useState([]);
+export function Lenses({ groupId }: { groupId: string }) {
+    const { loadLensGroup, applyLens, isSessionReady } = useCameraKit();
+    const [lenses, setLenses] = useState<Lens[]>([]);
 
-    useEffect(async () => {
-        const getLenses = async () => {
-            const lenses = await loadLenses(groupId);
-            setLenses(lenses);
+    useEffect(() => {
+        if (isSessionReady) {
+            loadLensGroup(groupId).then(setLenses).catch(console.error);
         }
-
-        getLenses().catch(console.error)
-
-        return undefined;
-    }, [loadLenses])
+    }, [loadLensGroup, groupId, isSessionReady]);
 
     return (
-        <View style={{position: 'absolute'}}>
+        <View style={{ position: 'absolute' }}>
             <FlatList
                 horizontal={true}
                 data={lenses}
-                renderItem={item => (
+                renderItem={({ item }) => (
                     <Pressable
                         onPress={() => {
-                            applyLens(item.item.id);
+                            applyLens(item.id).catch(console.error);
                         }}>
-                        <Image
-                            source={{uri: item.item.icon}}
-                        />
+                        <Image style={{ width: 75, height: 75 }} source={{ uri: item.icons[0]?.imageUrl }} />
                     </Pressable>
                 )}
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
             />
         </View>
-    )
+    );
 }
 ```
 
